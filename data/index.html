@@ -1,0 +1,322 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
+
+    <title>ESP32 Control Panel</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #0f172a;
+            color: #f8fafc;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        .card {
+            width: 100%;
+            max-width: 420px;
+            padding: 30px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 20px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #334155;
+        }
+
+        .brand {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .connection {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .connection.online {
+            color: #4ade80;
+        }
+
+        .content {
+            text-align: center;
+            padding: 35px 0 15px;
+        }
+
+        .led-icon {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 22px;
+            border-radius: 50%;
+            background: #334155;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 46px;
+            transition: 0.25s;
+        }
+
+        .led-icon.on {
+            background: #14532d;
+            box-shadow: 0 0 35px rgba(74,222,128,0.22);
+        }
+
+        h2 {
+            margin: 0 0 12px;
+            font-size: 25px;
+        }
+
+        .status {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 32px;
+        }
+
+        .status.on {
+            color: #4ade80;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        button {
+            flex: 1;
+            padding: 16px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-on {
+            background: #22c55e;
+            color: #052e16;
+            border: none;
+        }
+
+        .btn-off {
+            background: transparent;
+            color: #f8fafc;
+            border: 1px solid #64748b;
+        }
+
+        button:hover {
+            opacity: 0.85;
+        }
+
+        button:active {
+            transform: scale(0.97);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: wait;
+        }
+
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #334155;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="card">
+
+        <div class="header">
+            <div class="brand">ESP32 Control</div>
+
+            <div id="connection" class="connection">
+                Connecting...
+            </div>
+        </div>
+
+        <div class="content">
+
+            <div id="ledIcon" class="led-icon">
+                &#128161;
+            </div>
+
+            <h2>Onboard LED</h2>
+
+            <div id="status" class="status">
+                Reading LED status...
+            </div>
+
+            <div class="buttons">
+
+                <button class="btn-on"
+                        onclick="setLED(true)">
+                    Turn ON
+                </button>
+
+                <button class="btn-off"
+                        onclick="setLED(false)">
+                    Turn OFF
+                </button>
+
+            </div>
+        </div>
+
+        <div class="footer">
+            <span>ESP-WROOM-32</span>
+            <span id="ip"></span>
+        </div>
+
+    </div>
+
+    <script>
+        const statusElement =
+            document.getElementById("status");
+
+        const iconElement =
+            document.getElementById("ledIcon");
+
+        const connectionElement =
+            document.getElementById("connection");
+
+        const buttons =
+            document.querySelectorAll("button");
+
+        // Show actual ESP32 IP
+        document.getElementById("ip").textContent =
+            window.location.hostname;
+
+
+        // =====================================
+        // UPDATE INTERFACE
+        // =====================================
+
+        function updateUI(on) {
+
+            statusElement.textContent =
+                on ? "LED is ON" : "LED is OFF";
+
+            statusElement.classList.toggle("on", on);
+            iconElement.classList.toggle("on", on);
+        }
+
+
+        // =====================================
+        // READ STATUS FROM ESP32
+        // =====================================
+
+        async function getStatus() {
+
+            try {
+
+                const response = await fetch(
+                    "/status",
+                    { cache: "no-store" }
+                );
+
+                if (!response.ok) {
+                    throw new Error("Status request failed");
+                }
+
+                const data = await response.json();
+
+                updateUI(data.led);
+
+                connectionElement.textContent =
+                    "● Connected";
+
+                connectionElement.classList.add("online");
+
+            } catch (error) {
+
+                connectionElement.textContent =
+                    "Disconnected";
+
+                connectionElement.classList.remove("online");
+
+                statusElement.textContent =
+                    "Connection error";
+            }
+        }
+
+
+        // =====================================
+        // SEND LED COMMAND
+        // =====================================
+
+        async function setLED(on) {
+
+            buttons.forEach(button => {
+                button.disabled = true;
+            });
+
+            try {
+
+                const response = await fetch(
+                    on ? "/on" : "/off",
+                    { method: "POST" }
+                );
+
+                if (!response.ok) {
+                    throw new Error("Command failed");
+                }
+
+                const data = await response.json();
+
+                updateUI(data.led);
+
+                await getStatus();
+
+            } catch (error) {
+
+                statusElement.textContent =
+                    "Command failed";
+
+            } finally {
+
+                buttons.forEach(button => {
+                    button.disabled = false;
+                });
+            }
+        }
+
+
+        // =====================================
+        // INITIALIZATION
+        // =====================================
+
+        // Read state on page load
+        getStatus();
+
+        // Refresh every 2 seconds
+        setInterval(getStatus, 2000);
+
+    </script>
+
+</body>
+</html>

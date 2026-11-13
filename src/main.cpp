@@ -1,18 +1,112 @@
 
-#include <Arduino.h>  // Arduino framework functions
+#include <Arduino.h>
+#include <WiFi.h>
+#include <WebServer.h>
 
-#define LED_PIN 2      // Onboard LED connected to GPIO2
+#include "webpage.h"
 
-// Runs once when ESP32 starts or resets
-void setup() {
-    pinMode(LED_PIN, OUTPUT);  // Configure GPIO2 as output
+// ==========================================
+// CONFIGURATION
+// ==========================================
+
+#define LED_PIN 2
+
+const char* WIFI_SSID = "podx";
+const char* WIFI_PASSWORD = "buck3ye$";
+
+WebServer server(80);
+bool ledState = false;
+
+
+// ==========================================
+// LED CONTROL
+// ==========================================
+
+void setLED(bool state) {
+    ledState = state;
+
+    digitalWrite(LED_PIN, state ? HIGH : LOW);
+
+    Serial.print("LED: ");
+    Serial.println(state ? "ON" : "OFF");
 }
 
-// Runs continuously while ESP32 is powered ON
-void loop() {
-    digitalWrite(LED_PIN, HIGH);  // Set GPIO2 HIGH (3.3V) - LED ON
-    delay(1000);                  // Keep LED ON for 1000 ms (1 second)
 
-    digitalWrite(LED_PIN, LOW);   // Set GPIO2 LOW (0V) - LED OFF
-    delay(1000);                  // Keep LED OFF for 1000 ms (1 second)
+// ==========================================
+// HTTP ROUTES
+// ==========================================
+
+void setupRoutes() {
+
+    // Serve web interface
+    server.on("/", HTTP_GET, []() {
+        server.send(200, "text/html", WEBPAGE);
+    });
+
+    // LED ON
+    server.on("/on", HTTP_POST, []() {
+        setLED(true);
+        server.send(200, "application/json", "{\"led\":true}");
+    });
+
+    // LED OFF
+    server.on("/off", HTTP_POST, []() {
+        setLED(false);
+        server.send(200, "application/json", "{\"led\":false}");
+    });
+
+    // LED status
+    server.on("/status", HTTP_GET, []() {
+        String json = "{\"led\":";
+        json += ledState ? "true" : "false";
+        json += "}";
+
+        server.send(200, "application/json", json);
+    });
+
+    // Unknown routes
+    server.onNotFound([]() {
+        server.send(404, "text/plain", "Not Found");
+    });
+}
+
+
+// ==========================================
+// SETUP
+// ==========================================
+
+void setup() {
+    Serial.begin(115200);
+
+    pinMode(LED_PIN, OUTPUT);
+    setLED(false);
+
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+    Serial.print("Connecting to Wi-Fi");
+
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+
+    Serial.println();
+    Serial.print("ESP32 IP: ");
+    Serial.println(WiFi.localIP());
+
+    setupRoutes();
+    server.begin();
+
+    Serial.println("HTTP server started");
+}
+
+
+// ==========================================
+// MAIN LOOP
+// ==========================================
+
+void loop() {
+    server.handleClient();
+    delay(2);
 }
