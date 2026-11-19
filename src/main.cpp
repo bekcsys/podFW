@@ -15,8 +15,7 @@
 const char* WIFI_SSID = "podx";
 const char* WIFI_PASSWORD = "buck3ye$";
 
-// US Central. Change this if the board is in another zone.
-// https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
+// America/Chicago. CST (UTC-6) in winter, CDT (UTC-5) in summer.
 const char* TIMEZONE = "CST6CDT,M3.2.0,M11.1.0";
 const char* NTP_SERVER_1 = "pool.ntp.org";
 const char* NTP_SERVER_2 = "time.nist.gov";
@@ -122,9 +121,7 @@ String statusJson() {
 }
 
 void startClock() {
-    setenv("TZ", TIMEZONE, 1);
-    tzset();
-    configTime(0, 0, NTP_SERVER_1, NTP_SERVER_2);
+    configTzTime(TIMEZONE, NTP_SERVER_1, NTP_SERVER_2);
 }
 
 void announceClock() {

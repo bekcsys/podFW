@@ -367,7 +367,7 @@ const char WEBPAGE[] = R"rawliteral(
                 deviceOffset = Number(data.offset) || 0;
                 epochMarkedAt = Date.now();
                 dateEl.textContent = formatDate(deviceEpoch, deviceOffset);
-                clockNoteEl.textContent = "ESP32 local time";
+                clockNoteEl.textContent = "America/Chicago";
                 renderClock();
             } else {
                 dateEl.textContent = data.date || "Waiting for network time";
